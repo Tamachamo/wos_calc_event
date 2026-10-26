@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ホワサバ計算機</title>
   
-  <!-- PWA用の設定 -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2563eb">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -62,11 +61,18 @@
     <button onclick="addRow()" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2 mt-4">
       アイテム枠を追加する
     </button>
+
+    <!-- 【追加】控えめなインストールボタン -->
+    <div class="text-center mt-8 pb-4">
+      <button id="pwaInstallBtn" class="hidden text-sm text-gray-500 underline hover:text-gray-700 transition-colors">
+        📱 アプリをホーム画面に追加する
+      </button>
+    </div>
   </div>
 
   <script>
     // ★GASのウェブアプリURLに書き換えてください★
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyq1OcoaWgDT2hblLQ1MEoaR-5IrVh6ALq_04-Qv54L42s3mEeF5a6o2ApcD0OZMrDjnA/exec';
+    const GAS_URL = '★ここにGASのURLを貼り付け★';
 
     let masterData = {};
     let selectedEvent1 = '';
@@ -74,7 +80,6 @@
     let itemRows = []; 
     let currentMode = 'single';
 
-    // Service Workerの登録 (PWAの必須条件)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js');
@@ -82,17 +87,14 @@
     }
 
     window.onload = () => {
-      // GASのAPIからJSONを取得する
       fetch(GAS_URL)
         .then(res => res.json())
         .then(data => initData(data))
         .catch(err => {
           document.getElementById('loading').textContent = 'データの取得に失敗しました。';
-          console.error(err);
         });
     };
 
-    // --- 以下のロジックは前回と全く同じです ---
     function initData(data) {
       masterData = data;
       const events = Object.keys(data);
@@ -286,6 +288,37 @@
         }
         container.appendChild(card);
       });
+    }
+
+    // --- インストールボタンの制御 ---
+    const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+    let deferredPrompt;
+
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+
+    if (!isInStandaloneMode()) {
+      if (isIos()) {
+        pwaInstallBtn.classList.remove('hidden');
+        pwaInstallBtn.addEventListener('click', () => {
+          alert('【iPhoneでの追加方法】\n画面下部の「共有[↑]」ボタンをタップし、「ホーム画面に追加」を選択してください。');
+        });
+      } else {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          pwaInstallBtn.classList.remove('hidden');
+        });
+
+        pwaInstallBtn.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            pwaInstallBtn.classList.add('hidden');
+          }
+        });
+      }
     }
   </script>
 </body>
